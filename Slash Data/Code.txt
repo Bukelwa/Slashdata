@@ -1,0 +1,383 @@
+# first we want to import the packages we will need for reading the data, statistical analysis and visualisation
+
+import pandas as pd 
+import numpy as np
+from venn import venn
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.express as px
+import warnings
+import seaborn as sns
+from matplotlib_venn import venn3, venn2
+from sklearn.cluster import KMeans
+warnings.filterwarnings("ignore")
+import matplotlib.pylab as plt
+plt.style.use('fivethirtyeight')
+%matplotlib inline
+
+#we are calling our dataframe DF 
+
+df = pd.read_excel('Dummy_survey_data.xlsx')
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None, 'display.max_columns', None)
+df.head()
+
+duplicates = list(df.index.duplicated())
+
+indices = [i for i, x in enumerate(duplicates) if x == True ]
+
+def enquiry(list1): 
+    if len(list1) == 0: 
+        return 0
+    else: 
+        return 1
+    
+if enquiry(indices): 
+    print (indices) 
+else: 
+    print("After looking into the dataset we found that there are no duplicates in USER_ID") 
+
+
+shape = df.shape
+print(' The DataSet has ', str(shape[0]), ' Rows',', and ', str(shape[1]), ' Columns')
+
+old_columns = df.columns
+
+New_column_names = ['User_ID','Involvement in development', 'Company size', 'Role 1', 'Role 2',
+                    'Role 3','Role 4', 'Role 5', 'Experience', 'Platform 1-Primary', 'Platform 1-Secondary',
+                    'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary', 'Platform 2-Third', 'Platform 3-Primary',
+                    'Platform 3-Secondary', 'Platform 3-Third', 'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third', 
+                    'app type 1', 'app type 2', 'app type 3', 'app type 4','app type 5', 'app type 6', 'app type 7', 'tool type 1',
+                    'tool type 2', 'tool type 3', 'tool type 4', 'tool type 5', 'tool type 6', 'Language 1-Primary', 'Language 1-Also using', 
+                    'Language 2-Primary', 'Language 2-Also using', 'Language 3-Primary', 'Language 3-Also using', 'Language 4-Primary', 
+                    'Language 4-Also using', 'Language 5-Primary', 'Language 5-Also using', 'Language 6-Primary', 'Language 6-Also using']
+                    
+                    
+# we are going to assign the new column names to the old columns 
+df.columns = New_column_names
+
+df.head(10)
+
+
+df.isna().sum()
+df.dtypes
+df = df.replace(r'^\s*$', np.nan, regex=True)
+df.head(10)
+
+#we can now spot and indentify rows with empty spaces or responses 
+df.isna().sum()
+
+#here we created a list with responses Yes and No from respondants
+#List list will be converted to a table wich will help us visualise which platform had a lot of Yes responses
+
+platforms = ['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary', 
+                 'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third', 
+                'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third']
+
+Yes= []
+No = []
+for i in platforms:
+    
+    Platform1 = df[i].value_counts()
+    Yes.append([str(i),Platform1[1]])
+    No.append([str(i), Platform1[0]])
+    
+#We are taking our yes and No response list and turning them into a dataframe, so that we can visualise it later
+
+Yes = pd.DataFrame(Yes)
+No = pd.DataFrame(No)
+
+Platforms_responses = pd.DataFrame()
+
+Platforms_responses['Yes_Responses'] = [int(Yes.iloc[0:3,1:2].sum()),int(Yes.iloc[3:6,1:2].sum()),int(Yes.iloc[6:9,1:2].sum()), int(Yes.iloc[9:,1:2].sum())]
+Platforms_responses['No_Responses'] = [int(No.iloc[0:3,1:2].sum()),int(No.iloc[3:6,1:2].sum()),int(No.iloc[6:9,1:2].sum()), int(No.iloc[9:,1:2].sum())]
+Platforms_responses['labels'] = ['Platform 1', 'Platform 2', 'Platform 3', 'Platform 4']
+Platforms_responses = Platforms_responses.sort_values(by=['No_Responses'], ascending = False)
+
+#These are the actual values of usage responses from respondants for each platform
+
+Yes = Yes.set_index(Yes[0])
+No = No.set_index(No[0])
+
+result = pd.concat([Yes, No], axis=1)
+result.columns = ['Platform', 'Yes', 'Platform', 'No']
+result = result.drop(columns = ['Platform'])
+result['Yes %'] = (result['Yes']/result['No']*100).round(2)
+result['No %'] = 100 - result['Yes %']
+result = result.sort_index()
+
+labels = Platforms_responses['labels']
+Yes_values = Platforms_responses['Yes_Responses']
+No_values = Platforms_responses['No_Responses']
+
+# Create subplots: use 'domain' type for Pie subplot
+fig = make_subplots(rows=1, cols=2, specs=[[{'type':'domain'}, {'type':'domain'}]])
+fig.add_trace(go.Pie(labels=labels, values=Yes_values, name="Yes Responses"),
+              1, 1)
+fig.add_trace(go.Pie(labels=labels, values=No_values, name="No Responses"),
+              1, 2)
+
+# Use `hole` to create a donut-like pie chart
+fig.update_traces(hole=.6, hoverinfo="label+percent+name")
+
+fig.update_layout(
+    title_text=" Overrall Desktop Platform Performance (Yes=1 and No=0 Responses)",
+    # Add annotations in the center of the donut pies.
+    annotations=[dict(text='Yes Responses', x=0.15, y=0.5, font_size=14, showarrow=False),
+                 dict(text='No Responses', x=0.84, y=0.5, font_size=14, showarrow=False)])
+fig.show()
+
+Platforms_responses
+
+
+colors = ['rgba(38, 24, 74, 0.8)', 'rgba(71, 58, 131, 0.8)',
+          'rgba(122, 120, 168, 0.8)', 'rgba(164, 163, 204, 0.85)',
+          'rgba(190, 192, 213, 1)']
+
+category_names = ['Primary', 'Seconday', 'Third']
+results = {
+    'Platform 1': result['Yes %'][0:3],
+    'Platform 2': result['Yes %'][3:6],
+    'Platform 3': result['Yes %'][6:9],
+    'Platform 4': result['Yes %'][9:]
+}
+
+def survey(results, category_names):
+    """
+    Parameters
+    ----------
+    results : dict
+        A mapping from question labels to a list of answers per category.
+        It is assumed all lists contain the same number of entries and that
+        it matches the length of *category_names*.
+    category_names : list of str
+        The category labels.
+    """
+    labels = list(results.keys())
+    data = np.array(list(results.values()))
+    data_cum = data.cumsum(axis=1)
+    category_colors = plt.get_cmap('RdYlGn')(
+        np.linspace(0.15, 0.85, data.shape[1]))
+
+    fig, ax = plt.subplots(figsize=(9.2, 5))
+    ax.invert_yaxis()
+    ax.xaxis.set_visible(False)
+    ax.set_xlim(0, np.sum(data, axis=1).max())
+
+    for i, (colname, color) in enumerate(zip(category_names, category_colors)):
+        widths = data[:, i]
+        starts = data_cum[:, i] - widths
+        ax.barh(labels, widths, left=starts, height=0.5,
+                label=colname, color=color)
+        xcenters = starts + widths / 2
+
+        r, g, b, _ = color
+        text_color = 'white' if r * g * b < 0.5 else 'darkgrey'
+        for y, (x, c) in enumerate(zip(xcenters, widths)):
+            ax.text(x, y, str(int(c))+ '%', ha='center', va='center',
+                    color=text_color)
+    ax.legend(ncol=len(category_names), bbox_to_anchor=(0, 1),
+              loc='lower left', fontsize='small')
+
+    return fig, ax
+
+
+survey(results, category_names)
+plt.show()
+
+result
+
+
+# Primary usage for each platform
+platform_primary_1_users = df[df['Platform 1-Primary'] == 1].User_ID
+platform_primary_2_users = df[df['Platform 2-Primary'] == 1].User_ID
+platform_primary_3_users = df[df['Platform 3-Primary'] == 1].User_ID
+platform_primary_4_users = df[df['Platform 4-Primary'] == 1].User_ID
+
+# Secondary usage for each platform  
+
+platform_secondary_1_users = df[df['Platform 1-Secondary'] == 1].User_ID
+platform_secondary_2_users = df[df['Platform 2-Secondary'] == 1].User_ID
+platform_secondary_3_users = df[df['Platform 3-Secondary'] == 1].User_ID
+platform_secondary_4_users = df[df['Platform 4-Secondary'] == 1].User_ID
+
+# Third usage for each platform 
+
+platform_third_1_users = df[df['Platform 1-Third'] == 1].User_ID
+platform_third_2_users = df[df['Platform 2-Third'] == 1].User_ID
+platform_third_3_users = df[df['Platform 3-Third'] == 1].User_ID
+platform_third_4_users = df[df['Platform 4-Third'] == 1].User_ID
+
+
+# #Primary Platform
+
+platform_usage_primary = dict()
+
+platform_usage_primary['platform_1_primary_users'] = {i for i in platform_primary_1_users}
+platform_usage_primary['platform_2_primary_users'] = {i for i in platform_primary_2_users}
+platform_usage_primary['platform_3_primary_users'] = {i for i in platform_primary_3_users}
+platform_usage_primary['platform_4_primary_users'] = {i for i in platform_primary_4_users}
+
+venn(platform_usage_primary)
+plt.title('Non-Students IDE Use')
+plt.tight_layout()
+
+#Secondary Platform
+platform_usage_secondary = dict()
+
+platform_usage_secondary['platform_1_secondary_users'] = {i for i in platform_secondary_1_users}
+platform_usage_secondary['platform_2_secondary_users'] = {i for i in platform_secondary_2_users}
+platform_usage_secondary['platform_3_secondary_users'] = {i for i in platform_secondary_3_users}
+platform_usage_secondary['platform_4_secondary_users'] = {i for i in platform_secondary_4_users}
+
+venn(platform_usage_secondary)
+plt.title('Non-Students IDE Use')
+plt.tight_layout()
+
+# #Thrid Plaform
+platform_usage_third= dict()
+
+platform_usage_third['platform_1_third_users'] = {i for i in platform_third_1_users}
+platform_usage_third['platform_2_third_users'] = {i for i in platform_third_2_users}
+platform_usage_third['platform_3_third_users'] = {i for i in platform_third_3_users}
+platform_usage_third['platform_4_third_users'] = {i for i in platform_third_4_users}
+
+venn(platform_usage_third)
+plt.title('Non-Students IDE Use')
+plt.tight_layout()
+plt.show()
+# platform_usage
+
+set = df[['Involvement in development','Experience','Role 1', 'Role 2','Role 3','Role 4', 'Role 5','Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary', 
+                 'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third', 
+                'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third']].corr(method='pearson')
+
+np.random.seed(25)
+cmap = cmap=sns.diverging_palette(5, 250, as_cmap=True)
+
+set.drop(index = ['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 
+                  'Platform 2-Secondary','Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 
+                  'Platform 3-Third','Platform 4-Primary','Platform 4-Secondary', 'Platform 4-Third'],
+        columns = ['Involvement in development','Role 1', 'Role 2','Role 3','Role 4', 'Role 5', 'Experience']).T.style.background_gradient(cmap, axis=0).format("{:.2}").set_precision(2).format("{:.0%}")
+
+
+# dEVELOPER INVOLEMENT 
+INVOLEMENT = df.groupby('Involvement in development')['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary', 
+                 'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third', 
+                'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third'].mean()
+
+np.random.seed(25)
+cmap = cmap=sns.diverging_palette(5, 250, as_cmap=True)
+
+INVOLEMENT.T.sort_index().style.background_gradient(cmap, axis=0).set_precision(2).format("{:.0%}")
+
+
+# dEVELOPER experience 
+experience = df.groupby('Experience')['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary', 
+                 'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third', 
+                'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third'].mean()
+
+np.random.seed(25)
+cmap = cmap=sns.diverging_palette(5, 250, as_cmap=True)
+
+experience.T.sort_index().style.background_gradient(cmap, axis=0).set_precision(2).format("{:.0%}")
+
+
+
+corrmat = df[['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary',
+              'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third','Platform 4-Primary', 
+              'Platform 4-Secondary', 'Platform 4-Third','Language 1-Primary', 'Language 1-Also using',
+              'Language 2-Primary', 'Language 2-Also using', 'Language 3-Primary', 'Language 3-Also using', 'Language 4-Primary',
+              'Language 4-Also using', 'Language 5-Primary', 'Language 5-Also using', 'Language 6-Primary', 'Language 6-Also using']].corr(method='pearson')
+
+np.random.seed(25)
+cmap = cmap=sns.diverging_palette(5, 250, as_cmap=True)
+
+corrmat.drop(index = ['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary','Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary',
+                      'Platform 3-Third','Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third'] ,
+             columns=['Language 1-Also using','Language 2-Primary', 'Language 2-Also using', 'Language 3-Primary', 'Language 3-Also using', 'Language 4-Primary','Language 4-Also using', 'Language 5-Primary', 'Language 5-Also using', 'Language 6-Primary',
+                    'Language 6-Also using', 'Language 1-Primary']).T.style.background_gradient(cmap, axis=0).format("{:.2}").set_precision(2).format("{:.0%}")
+
+
+apptype = df[['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary',
+              'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third',
+              'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third', 'app type 1', 'app type 2', 'app type 3', 'app type 4','app type 5', 'app type 6', 'app type 7']].corr(method='pearson')
+
+np.random.seed(25)
+cmap = cmap=sns.diverging_palette(5, 250, as_cmap=True)
+
+apptype.drop(index = ['app type 1', 'app type 2', 'app type 3', 'app type 4','app type 5', 'app type 6', 'app type 7'] ,columns=['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary', 
+                 'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third', 
+                'Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third']).style.background_gradient(cmap, axis=0).format("{:.2}").set_precision(2).format("{:.0%}")
+
+tooltype = df[['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary',
+               'Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary', 'Platform 3-Third','Platform 4-Primary', 
+               'Platform 4-Secondary', 'Platform 4-Third', 'tool type 1','tool type 2', 'tool type 3', 'tool type 4', 
+               'tool type 5', 'tool type 6']].corr(method='pearson')
+
+np.random.seed(25)
+cmap = cmap=sns.diverging_palette(5, 250, as_cmap=True)
+
+tooltype.drop(index = ['Platform 1-Primary', 'Platform 1-Secondary', 'Platform 1-Third', 'Platform 2-Primary', 'Platform 2-Secondary','Platform 2-Third', 'Platform 3-Primary','Platform 3-Secondary',
+                      'Platform 3-Third','Platform 4-Primary', 'Platform 4-Secondary', 'Platform 4-Third'] ,
+             columns=['tool type 1','tool type 2', 'tool type 3', 'tool type 4', 'tool type 5', 'tool type 6']).T.style.background_gradient(cmap, axis=0).format("{:.2}").set_precision(2).format("{:.0%}")
+             
+
+# Create IDE binary dataset, dropping no responses
+ide_qs_binary = df[platforms]
+ide_qs_binary['no reponse'] = ide_qs_binary.sum(axis=1).apply(lambda x: 1 if x == 0 else 0)
+ide_qs_binary = ide_qs_binary.loc[ide_qs_binary['no reponse'] == 0].drop('no reponse', axis=1).copy()
+ide_qs_binary
+
+# Make the clusters using sklean's KMeans
+y_pred = KMeans(n_clusters=4, random_state=1).fit_predict(ide_qs_binary)
+ide_qs_binary['cluster'] = y_pred
+
+# # Name the clusters
+y_pred_named = ['Cluster1' if x == 0 else 
+                'Cluster2' if x == 1 else 
+                'Cluster3' if x == 2 else 
+                'Cluster4' if x == 3 else
+                'Cluster5' for x in y_pred]
+
+ide_qs_binary['cluster_name'] = y_pred_named
+
+cluster1 = ide_qs_binary.loc[ide_qs_binary['cluster'] == 0]
+cluster2 = ide_qs_binary.loc[ide_qs_binary['cluster'] == 1]
+cluster3 = ide_qs_binary.loc[ide_qs_binary['cluster'] == 2]
+cluster4 = ide_qs_binary.loc[ide_qs_binary['cluster'] == 3]
+cluster5 = ide_qs_binary.loc[ide_qs_binary['cluster'] == 4]
+
+ide_qs_binary = ide_qs_binary.replace({ide_qs_binary.groupby('cluster_name').sum().iloc[0].name: '1',
+                                       ide_qs_binary.groupby('cluster_name').sum().iloc[0].name: '2',
+                                       ide_qs_binary.groupby('cluster_name').sum().iloc[0].name: '3',
+                                       ide_qs_binary.groupby('cluster_name').sum().iloc[0].name: '4', 
+                                       ide_qs_binary.groupby('cluster_name').sum().iloc[0].name: 'Cluster1'}).copy()
+
+ide_qs_binary.head(50)
+df['cluster_name'] = ide_qs_binary['cluster_name']
+df['cluster_name'] = df['cluster_name'].fillna('No Response')
+df['count'] = 1
+
+
+def ven3_jrn(df):
+    #df = df.rename({'Jupyter/IPython':'Jupyter'}, axis=1)
+    top_3 = d.groupby('cluster_name').sum().T.sort_values(i, ascending=False).drop('cluster').index[:3].values
+    return venn3(subsets=(len(df.loc[(df[top_3[0]] == 1) & (df[top_3[1]] == 0) & (df[top_3[2]] == 0)]),
+               len(df.loc[(df[top_3[0]] == 0) & (df[top_3[1]] == 1) & (df[top_3[2]] == 0)]),
+               len(df.loc[(df[top_3[0]] == 1) & (df[top_3[1]] == 1) & (df[top_3[2]] == 0)]),
+               len(df.loc[(df[top_3[0]] == 0) & (df[top_3[1]] == 0) & (df[top_3[2]] == 1)]),
+               len(df.loc[(df[top_3[0]] == 1) & (df[top_3[1]] == 0) & (df[top_3[2]] == 1)]),
+               len(df.loc[(df[top_3[0]] == 0) & (df[top_3[1]] == 1) & (df[top_3[2]] == 1)]),
+               len(df.loc[(df[top_3[0]] == 1) & (df[top_3[1]] == 1) & (df[top_3[2]] == 1)])),
+      set_labels=(top_3[0], top_3[1], top_3[2]))
+
+plt.figure(figsize=(15, 10))
+n = 1
+
+for i, d in ide_qs_binary.groupby('cluster_name'):
+    plt.subplot(2, 2, n)
+    ven3_jrn(d)
+    plt.title(i)
+    n += 1
+plt.show()
