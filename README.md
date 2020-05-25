@@ -13,6 +13,9 @@ https://docs.google.com/document/d/1p39h6URgQnsJGod5-5hn0AWYf9X-NQnayR1ZBw7LafU/
 * Timesheet Google sheet - 
 https://drive.google.com/file/d/1PNspd7TbjahYF_ZOWBBHLRBt-LZ-oxwp/view?usp=sharing
 
+* Google folder - 
+https://drive.google.com/drive/folders/1Ta2M5kb9DuClRxMsTsT16ZejoePB_BXj?usp=sharing
+
 Enjoy and I hope to join you soon. 
 
 :)
